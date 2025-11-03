@@ -1,7 +1,6 @@
 import axios from 'axios'
 
-// Point this to your backend
-const API_URL = 'http://127.0.0.1:8000/api'
+const API_URL = 'https://ruotg123.pythonanywhere.com/api'
 
 export class APIService {
   getRecipes() {

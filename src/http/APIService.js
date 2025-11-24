@@ -51,9 +51,12 @@ apiClient.interceptors.response.use(
   }
 )
 
+// API Service class
 export class APIService {
+  // ============================================
   // Authentication
-  async register(userData) {
+  // ============================================
+  register(userData) {
     return apiClient.post('/auth/register/', userData)
   }
 
@@ -79,102 +82,116 @@ export class APIService {
     localStorage.clear()
   }
 
-  async getProfile() {
+  getProfile() {
     return apiClient.get('/auth/profile/')
   }
 
-  async updateProfile(data) {
+  updateProfile(data) {
     return apiClient.patch('/auth/profile/', data)
   }
 
-  // Recipes - Updated to match backend
-  async getRecipes(params = {}) {
+  // ============================================
+  // Recipes
+  // ============================================
+  getRecipes(params = {}) {
     return apiClient.get('/recipes/', { params })
   }
 
-  async getRecipe(id) {
+  getRecipe(id) {
     return apiClient.get(`/recipes/${id}/`)
   }
 
-  async createRecipe(data) {
+  createRecipe(data) {
     return apiClient.post('/recipes/', data)
   }
 
-  async updateRecipe(id, data) {
+  updateRecipe(id, data) {
     return apiClient.patch(`/recipes/${id}/`, data)
   }
 
-  async deleteRecipe(id) {
+  deleteRecipe(id) {
     return apiClient.delete(`/recipes/${id}/`)
   }
 
-  async getMyRecipes() {
+  getMyRecipes() {
     return apiClient.get('/recipes/my_recipes/')
   }
 
+  // ============================================
   // Categories
-  async getCategories() {
+  // ============================================
+  getCategories() {
     return apiClient.get('/categories/')
   }
 
-  async createCategory(data) {
+  createCategory(data) {
     return apiClient.post('/categories/', data)
   }
 
+  // ============================================
   // Favorites
-  async getFavorites() {
+  // ============================================
+  getFavorites() {
     return apiClient.get('/favorites/')
   }
 
-  async addFavorite(recipeId) {
+  addFavorite(recipeId) {
     return apiClient.post(`/recipes/${recipeId}/favorite/`)
   }
 
-  async removeFavorite(recipeId) {
+  removeFavorite(recipeId) {
     return apiClient.delete(`/recipes/${recipeId}/unfavorite/`)
   }
 
+  // ============================================
   // Ratings
-  async rateRecipe(recipeId, rating) {
+  // ============================================
+  rateRecipe(recipeId, rating) {
     return apiClient.post(`/recipes/${recipeId}/rate/`, { rating })
   }
 
+  // ============================================
   // Comments
-  async addComment(recipeId, text) {
+  // ============================================
+  addComment(recipeId, text) {
     return apiClient.post(`/recipes/${recipeId}/comment/`, { text })
   }
 
-  async updateComment(commentId, text) {
+  updateComment(commentId, text) {
     return apiClient.patch(`/comments/${commentId}/`, { text })
   }
 
-  async deleteComment(commentId) {
+  deleteComment(commentId) {
     return apiClient.delete(`/comments/${commentId}/`)
   }
 
+  // ============================================
   // Admin
-  async getUsers() {
+  // ============================================
+  getUsers() {
     return apiClient.get('/admin/users/')
   }
 
-  async updateUser(userId, data) {
+  updateUser(userId, data) {
     return apiClient.patch(`/admin/users/${userId}/`, data)
   }
 
-  async getAdminRecipes() {
+  getAdminRecipes() {
     return apiClient.get('/admin/recipes/')
   }
 
-  async updateAdminRecipe(recipeId, data) {
+  updateAdminRecipe(recipeId, data) {
     return apiClient.patch(`/admin/recipes/${recipeId}/`, data)
   }
 
-  async deleteAdminRecipe(recipeId) {
+  deleteAdminRecipe(recipeId) {
     return apiClient.delete(`/admin/recipes/${recipeId}/`)
   }
 
+  // ============================================
   // Legacy methods for backward compatibility
-  addRecipe(recipe, token) {
+  // ============================================
+  addRecipe(recipe) {
     return this.createRecipe(recipe)
   }
 
@@ -187,5 +204,8 @@ export class APIService {
   }
 }
 
+// Create singleton instance
+const apiService = new APIService()
+
 // Export both the class and a default instance
-export default new APIService()
+export default apiService

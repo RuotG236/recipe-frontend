@@ -14,7 +14,10 @@
                 <label class="form-label">Password</label>
                 <input type="password" class="form-control" v-model="credentials.password" required>
               </div>
-              <button type="submit" class="btn btn-primary w-100">Login</button>
+              <button type="submit" class="btn btn-primary w-100" :disabled="loading">
+                <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+                Login
+              </button>
               <p class="mt-3 text-center">
                 Don't have an account? <router-link :to="{name: 'Register'}">Register</router-link>
               </p>
@@ -28,32 +31,43 @@
 </template>
 
 <script>
-import { APIService } from '../http/APIService'
-
-const apiService = new APIService()
+import { ref } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'Auth',
-  data() {
-    return {
-      credentials: {
-        username: '',
-        password: ''
-      },
-      error: null
+  setup() {
+    const store = useStore()
+    const router = useRouter()
+
+    const credentials = ref({
+      username: '',
+      password: ''
+    })
+    const error = ref(null)
+    const loading = ref(false)
+
+    const login = async () => {
+      error.value = null
+      loading.value = true
+
+      try {
+        await store.dispatch('login', credentials.value)
+        router.push({ name: 'RecipeList' })
+      } catch (err) {
+        error.value = err.response?.data?.detail || "Invalid credentials"
+        console.error(err)
+      } finally {
+        loading.value = false
+      }
     }
-  },
-  methods: {
-    login() {
-      apiService.authenticateLogin(this.credentials).then(response => {
-        localStorage.setItem("access", response.data.access)
-        localStorage.setItem("refresh", response.data.refresh)
-        localStorage.setItem("isAuthenticated", true)
-        this.$router.push({ name: 'RecipeList' })
-      }).catch(error => {
-        this.error = "Invalid credentials"
-        console.error(error)
-      })
+
+    return {
+      credentials,
+      error,
+      loading,
+      login
     }
   }
 }

@@ -12,7 +12,7 @@ export default createStore({
     loading: false,
     error: null
   },
-  
+
   getters: {
     isAuthenticated: state => state.isAuthenticated,
     currentUser: state => state.user,
@@ -24,38 +24,47 @@ export default createStore({
     loading: state => state.loading,
     error: state => state.error
   },
-  
+
   mutations: {
     SET_USER(state, user) {
       state.user = user
       state.isAuthenticated = !!user
       if (user) {
         localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('username', user.username)
+        localStorage.setItem('isAuthenticated', 'true')
       } else {
         localStorage.removeItem('user')
+        localStorage.removeItem('username')
+        localStorage.removeItem('isAuthenticated')
       }
     },
-    
+
     SET_AUTHENTICATED(state, value) {
       state.isAuthenticated = value
+      if (value) {
+        localStorage.setItem('isAuthenticated', 'true')
+      } else {
+        localStorage.removeItem('isAuthenticated')
+      }
     },
-    
+
     SET_CATEGORIES(state, categories) {
       state.categories = categories
     },
-    
+
     SET_RECIPES(state, recipes) {
       state.recipes = recipes
     },
-    
+
     SET_CURRENT_RECIPE(state, recipe) {
       state.currentRecipe = recipe
     },
-    
+
     ADD_RECIPE(state, recipe) {
       state.recipes.unshift(recipe)
     },
-    
+
     UPDATE_RECIPE(state, updatedRecipe) {
       const index = state.recipes.findIndex(r => r.id === updatedRecipe.id)
       if (index !== -1) {
@@ -65,37 +74,37 @@ export default createStore({
         state.currentRecipe = updatedRecipe
       }
     },
-    
+
     REMOVE_RECIPE(state, recipeId) {
       state.recipes = state.recipes.filter(r => r.id !== recipeId)
     },
-    
+
     SET_FAVORITES(state, favorites) {
       state.favorites = favorites
     },
-    
+
     ADD_FAVORITE(state, recipeId) {
       if (!state.favorites.some(f => f.recipe?.id === recipeId)) {
         state.favorites.push({ recipe: { id: recipeId } })
       }
     },
-    
+
     REMOVE_FAVORITE(state, recipeId) {
       state.favorites = state.favorites.filter(f => f.recipe?.id !== recipeId)
     },
-    
+
     SET_LOADING(state, value) {
       state.loading = value
     },
-    
+
     SET_ERROR(state, error) {
       state.error = error
     },
-    
+
     CLEAR_ERROR(state) {
       state.error = null
     },
-    
+
     LOGOUT(state) {
       state.user = null
       state.isAuthenticated = false
@@ -103,14 +112,28 @@ export default createStore({
       localStorage.clear()
     }
   },
-  
+
   actions: {
-    async login({ commit }, credentials) {
+    async login({ commit, dispatch }, credentials) {
       commit('SET_LOADING', true)
       commit('CLEAR_ERROR')
       try {
         const response = await apiService.login(credentials)
-        commit('SET_USER', response.data.user)
+
+        // If backend returns user data directly, use it
+        if (response.data.user) {
+          commit('SET_USER', response.data.user)
+        } else {
+          // Otherwise fetch the profile
+          try {
+            const profileResponse = await apiService.getProfile()
+            commit('SET_USER', profileResponse.data)
+          } catch (profileError) {
+            // If profile fetch fails, create minimal user object
+            commit('SET_USER', { username: credentials.username })
+          }
+        }
+
         commit('SET_AUTHENTICATED', true)
         return response.data
       } catch (error) {
@@ -120,7 +143,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async register({ commit }, userData) {
       commit('SET_LOADING', true)
       commit('CLEAR_ERROR')
@@ -134,12 +157,27 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async logout({ commit }) {
-      await apiService.logout()
+      try {
+        await apiService.logout()
+      } catch (error) {
+        console.error('Logout error:', error)
+      }
       commit('LOGOUT')
     },
-    
+
+    async fetchProfile({ commit }) {
+      try {
+        const response = await apiService.getProfile()
+        commit('SET_USER', response.data)
+        return response.data
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        throw error
+      }
+    },
+
     async fetchCategories({ commit }) {
       try {
         const response = await apiService.getCategories()
@@ -148,7 +186,7 @@ export default createStore({
         console.error('Error fetching categories:', error)
       }
     },
-    
+
     async fetchRecipes({ commit }, params = {}) {
       commit('SET_LOADING', true)
       try {
@@ -160,7 +198,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async fetchRecipe({ commit }, id) {
       commit('SET_LOADING', true)
       try {
@@ -174,7 +212,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async createRecipe({ commit }, recipeData) {
       commit('SET_LOADING', true)
       try {
@@ -188,7 +226,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async updateRecipe({ commit }, { id, data }) {
       commit('SET_LOADING', true)
       try {
@@ -202,7 +240,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async deleteRecipe({ commit }, id) {
       commit('SET_LOADING', true)
       try {
@@ -215,7 +253,7 @@ export default createStore({
         commit('SET_LOADING', false)
       }
     },
-    
+
     async fetchFavorites({ commit }) {
       try {
         const response = await apiService.getFavorites()
@@ -224,12 +262,11 @@ export default createStore({
         console.error('Error fetching favorites:', error)
       }
     },
-    
-    async toggleFavorite({ commit }, recipeId) {
+
+    async toggleFavorite({ commit, state }, recipeId) {
       try {
-        const favorites = this.state.favorites
-        const isFavorited = favorites.some(f => f.recipe?.id === recipeId)
-        
+        const isFavorited = state.favorites.some(f => f.recipe?.id === recipeId)
+
         if (isFavorited) {
           await apiService.removeFavorite(recipeId)
           commit('REMOVE_FAVORITE', recipeId)
@@ -242,7 +279,7 @@ export default createStore({
         throw error
       }
     },
-    
+
     async rateRecipe({ dispatch }, { recipeId, rating }) {
       try {
         await apiService.rateRecipe(recipeId, rating)
@@ -251,7 +288,7 @@ export default createStore({
         throw error
       }
     },
-    
+
     async addComment({ dispatch }, { recipeId, text }) {
       try {
         await apiService.addComment(recipeId, text)

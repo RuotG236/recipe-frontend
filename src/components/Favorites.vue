@@ -1,46 +1,54 @@
 <template>
-  <div class="favorites container">
+  <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2><i class="bi bi-heart-fill text-danger"></i> My Favorite Recipes</h2>
-      <span class="badge bg-secondary">{{ favorites.length }} recipes</span>
+      <h2><i class="bi bi-heart-fill text-danger"></i> My Favorites</h2>
+      <span class="badge bg-secondary fs-6">{{ favorites.length }} recipes</span>
     </div>
 
+    <!-- Loading -->
     <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
+      <div class="spinner-border text-primary"></div>
+      <p class="mt-2">Loading favorites...</p>
     </div>
 
+    <!-- Favorites Grid -->
     <div v-else-if="favorites.length > 0" class="row">
       <div v-for="favorite in favorites" :key="favorite.id" class="col-md-6 col-lg-4 mb-4">
         <div class="card h-100 shadow-sm">
+          <!-- Image -->
           <div class="position-relative">
-            <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
-                 style="height: 200px;">
-              <img v-if="favorite.recipe.image_url" :src="favorite.recipe.image_url"
-                   alt="Recipe image" class="img-fluid" style="max-height: 200px;">
-              <span v-else class="text-muted"><i class="bi bi-image fs-1"></i></span>
+            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+              <img v-if="getRecipe(favorite).image_url" 
+                   :src="getRecipe(favorite).image_url"
+                   :alt="getRecipe(favorite).title" 
+                   class="img-fluid" 
+                   style="max-height: 180px; object-fit: cover;"
+                   @error="$event.target.style.display='none'">
+              <i v-else class="bi bi-image text-muted" style="font-size: 3rem;"></i>
             </div>
+            <!-- Remove Button -->
             <button class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2"
-                    @click="removeFavorite(favorite.recipe.id)">
+                    @click="removeFavorite(getRecipe(favorite).id)" title="Remove from favorites">
               <i class="bi bi-heart-fill"></i>
             </button>
           </div>
 
-          <div class="card-body">
-            <h5 class="card-title">{{ favorite.recipe.title }}</h5>
-            <p class="text-muted small">
-              <i class="bi bi-person"></i> {{ favorite.recipe.author }} |
-              <i class="bi bi-tag"></i> {{ favorite.recipe.category_name || 'Uncategorized' }}
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ getRecipe(favorite).title }}</h5>
+            <p class="text-muted small mb-2">
+              <i class="bi bi-person"></i> {{ getRecipe(favorite).author }}
+              <span class="mx-1">|</span>
+              <i class="bi bi-tag"></i> {{ getRecipe(favorite).category_name || 'Uncategorized' }}
             </p>
-            <p class="card-text">{{ truncateText(favorite.recipe.description, 100) }}</p>
-            <div class="d-flex justify-content-between align-items-center">
+            <p class="card-text small flex-grow-1">
+              {{ truncate(getRecipe(favorite).description, 80) }}
+            </p>
+            <div class="d-flex justify-content-between align-items-center mt-auto">
               <div>
                 <i class="bi bi-star-fill text-warning"></i>
-                {{ favorite.recipe.average_rating || 0 }}
-                ({{ favorite.recipe.total_ratings || 0 }} ratings)
+                {{ (getRecipe(favorite).average_rating || 0).toFixed(1) }}
               </div>
-              <router-link :to="{name: 'RecipeDetail', params: {id: favorite.recipe.id}}"
+              <router-link :to="{name: 'RecipeDetail', params: {id: getRecipe(favorite).id}}" 
                            class="btn btn-primary btn-sm">
                 View Recipe
               </router-link>
@@ -50,11 +58,13 @@
       </div>
     </div>
 
-    <div v-else class="alert alert-info text-center">
-      <h4>No favorites yet!</h4>
-      <p>Start browsing recipes and click the heart icon to add them to your favorites.</p>
+    <!-- Empty State -->
+    <div v-else class="text-center py-5">
+      <i class="bi bi-heart text-muted" style="font-size: 4rem;"></i>
+      <h4 class="mt-3 text-muted">No favorites yet!</h4>
+      <p class="text-muted">Browse recipes and click the heart icon to add them here.</p>
       <router-link :to="{name: 'RecipeList'}" class="btn btn-primary">
-        Browse Recipes
+        <i class="bi bi-search"></i> Browse Recipes
       </router-link>
     </div>
   </div>
@@ -74,12 +84,21 @@ export default {
       loading.value = true
       try {
         const response = await apiService.getFavorites()
-        favorites.value = response.data
-      } catch (error) {
-        console.error('Error fetching favorites:', error)
+        // Handle paginated or array response
+        favorites.value = response.data.results || response.data || []
+        console.log('Favorites loaded:', favorites.value.length)
+      } catch (err) {
+        console.error('Error fetching favorites:', err)
+        favorites.value = []
       } finally {
         loading.value = false
       }
+    }
+
+    // Helper to get recipe from favorite object (handles different API structures)
+    const getRecipe = (favorite) => {
+      // If favorite.recipe exists, use it; otherwise treat favorite as the recipe
+      return favorite.recipe || favorite
     }
 
     const removeFavorite = async (recipeId) => {
@@ -87,13 +106,18 @@ export default {
 
       try {
         await apiService.removeFavorite(recipeId)
-        favorites.value = favorites.value.filter(f => f.recipe.id !== recipeId)
-      } catch (error) {
-        console.error('Error removing favorite:', error)
+        // Remove from local array
+        favorites.value = favorites.value.filter(f => {
+          const recipe = getRecipe(f)
+          return recipe.id !== recipeId
+        })
+      } catch (err) {
+        console.error('Error removing favorite:', err)
+        alert('Failed to remove favorite')
       }
     }
 
-    const truncateText = (text, length) => {
+    const truncate = (text, length) => {
       if (!text) return ''
       return text.length > length ? text.substring(0, length) + '...' : text
     }
@@ -103,8 +127,9 @@ export default {
     return {
       favorites,
       loading,
+      getRecipe,
       removeFavorite,
-      truncateText
+      truncate
     }
   }
 }
@@ -112,10 +137,9 @@ export default {
 
 <style scoped>
 .card {
-  transition: transform 0.3s;
+  transition: transform 0.2s;
 }
-
 .card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-3px);
 }
 </style>

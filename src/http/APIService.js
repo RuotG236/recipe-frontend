@@ -144,10 +144,13 @@ export class APIService {
   }
 
   // ============================================
-  // Ratings
+  // Ratings - UPDATED WITH COMMENT SUPPORT
   // ============================================
-  rateRecipe(recipeId, rating) {
-    return apiClient.post(`/recipes/${recipeId}/rate/`, { rating })
+  rateRecipe(recipeId, rating, comment = '') {
+    return apiClient.post(`/recipes/${recipeId}/rate/`, { 
+      rating,
+      comment 
+    })
   }
 
   // ============================================
@@ -189,7 +192,7 @@ export class APIService {
   }
 
   // ============================================
-  // Legacy methods for backward compatibility
+  // Legacy method
   // ============================================
   addRecipe(recipe) {
     return this.createRecipe(recipe)

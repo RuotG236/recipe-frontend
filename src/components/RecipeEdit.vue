@@ -1,34 +1,45 @@
 <template>
-  <div class="recipe-edit container">
+  <div class="container mt-4">
     <div class="row justify-content-center">
       <div class="col-md-8">
         <div class="card shadow">
           <div class="card-body">
-            <h2 class="card-title mb-4">Edit Recipe</h2>
+            <h2 class="mb-4"><i class="bi bi-pencil"></i> Edit Recipe</h2>
 
-            <form @submit.prevent="updateRecipe">
+            <!-- Loading -->
+            <div v-if="pageLoading" class="text-center py-5">
+              <div class="spinner-border text-primary"></div>
+              <p class="mt-2">Loading recipe...</p>
+            </div>
+
+            <!-- Form -->
+            <form v-else @submit.prevent="updateRecipe">
+              <!-- Title -->
               <div class="mb-3">
-                <label class="form-label">Title *</label>
+                <label class="form-label">Title <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" v-model="recipe.title" required>
               </div>
 
+              <!-- Category -->
               <div class="mb-3">
                 <label class="form-label">Category</label>
-                <select class="form-select" v-model="recipe.category">
-                  <option :value="null">-- Select Category --</option>
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                    {{ cat.name }}
-                  </option>
+                <select class="form-select" v-model="recipe.category_name">
+                  <option value="">-- Select Category --</option>
+                  <option value="Breakfast">Breakfast</option>
+                  <option value="Lunch">Lunch</option>
+                  <option value="Dinner">Dinner</option>
+                  <option value="Dessert">Dessert</option>
                 </select>
               </div>
 
+              <!-- Time and Servings -->
               <div class="row mb-3">
                 <div class="col-md-4">
-                  <label class="form-label">Prep Time (minutes)</label>
+                  <label class="form-label">Prep Time (min)</label>
                   <input type="number" class="form-control" v-model.number="recipe.prep_time" min="0">
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Cook Time (minutes)</label>
+                  <label class="form-label">Cook Time (min)</label>
                   <input type="number" class="form-control" v-model.number="recipe.cook_time" min="0">
                 </div>
                 <div class="col-md-4">
@@ -37,38 +48,48 @@
                 </div>
               </div>
 
+              <!-- Description -->
               <div class="mb-3">
-                <label class="form-label">Description</label>
+                <label class="form-label">Description <span class="text-danger">*</span></label>
                 <textarea class="form-control" rows="3" v-model="recipe.description" required></textarea>
               </div>
 
+              <!-- Ingredients -->
               <div class="mb-3">
-                <label class="form-label">Ingredients (one per line)</label>
-                <textarea class="form-control" rows="6" v-model="recipe.ingredients"
-                          placeholder="2 cups flour&#10;1 cup sugar&#10;3 eggs" required></textarea>
+                <label class="form-label">Ingredients</label>
+                <textarea class="form-control" rows="5" v-model="recipe.ingredients"
+                          placeholder="One ingredient per line"></textarea>
               </div>
 
+              <!-- Instructions -->
               <div class="mb-3">
                 <label class="form-label">Instructions</label>
-                <textarea class="form-control" rows="8" v-model="recipe.instructions" required></textarea>
+                <textarea class="form-control" rows="5" v-model="recipe.instructions"></textarea>
               </div>
 
-              <div class="mb-3">
+              <!-- Image URL -->
+              <div class="mb-4">
                 <label class="form-label">Image URL</label>
-                <input type="url" class="form-control" v-model="recipe.image_url"
-                       placeholder="https://example.com/image.jpg">
+                <input type="url" class="form-control" v-model="recipe.image_url" placeholder="https://example.com/image.jpg">
+                <div v-if="recipe.image_url" class="mt-2">
+                  <img :src="recipe.image_url" class="img-thumbnail" style="max-height: 100px;" @error="$event.target.style.display='none'">
+                </div>
               </div>
 
+              <!-- Buttons -->
               <div class="d-flex justify-content-between">
-                <router-link :to="{name: 'RecipeDetail', params: {id: recipeId}}"
-                             class="btn btn-secondary">Cancel</router-link>
+                <router-link :to="{name: 'RecipeDetail', params: {id: recipeId}}" class="btn btn-secondary">
+                  Cancel
+                </router-link>
                 <button type="submit" class="btn btn-primary" :disabled="loading">
                   <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
-                  Update Recipe
+                  {{ loading ? 'Saving...' : 'Save Changes' }}
                 </button>
               </div>
             </form>
 
+            <!-- Messages -->
+            <div v-if="success" class="alert alert-success mt-3">{{ success }}</div>
             <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
           </div>
         </div>
@@ -78,7 +99,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiService from '@/http/APIService'
 
@@ -89,23 +110,41 @@ export default {
     const router = useRouter()
     const recipeId = route.params.id
 
-    const recipe = ref({
+    const recipe = reactive({
       title: '',
       description: '',
       ingredients: '',
       instructions: '',
       category: null,
+      category_name: '',
       prep_time: 0,
       cook_time: 0,
       servings: 4,
       image_url: ''
     })
 
-    const categories = ref([])
+    const categoryMap = ref({})
+    const pageLoading = ref(true)
     const loading = ref(false)
     const error = ref(null)
+    const success = ref(null)
+
+    const fetchCategories = async () => {
+      try {
+        const response = await apiService.getCategories()
+        const cats = response.data.results || response.data || []
+        cats.forEach(cat => {
+          categoryMap.value[cat.name] = cat.id
+          // Also map ID to name for reverse lookup
+          categoryMap.value[cat.id] = cat.name
+        })
+      } catch (err) {
+        console.log('Could not fetch categories')
+      }
+    }
 
     const fetchRecipe = async () => {
+      pageLoading.value = true
       try {
         const response = await apiService.getRecipe(recipeId)
         const data = response.data
@@ -117,10 +156,20 @@ export default {
           return
         }
 
-        // Format ingredients for editing
-        let ingredientsText = ''
+        // Populate form
+        recipe.title = data.title || ''
+        recipe.description = data.description || ''
+        recipe.instructions = data.instructions || ''
+        recipe.prep_time = data.prep_time || 0
+        recipe.cook_time = data.cook_time || 0
+        recipe.servings = data.servings || 4
+        recipe.image_url = data.image_url || ''
+        recipe.category = data.category
+        recipe.category_name = data.category_name || ''
+
+        // Handle ingredients
         if (data.ingredients_list && data.ingredients_list.length > 0) {
-          ingredientsText = data.ingredients_list
+          recipe.ingredients = data.ingredients_list
             .map(i => {
               const parts = []
               if (i.quantity) parts.push(i.quantity)
@@ -129,60 +178,71 @@ export default {
               return parts.join(' ')
             })
             .join('\n')
-        } else if (data.ingredients) {
-          ingredientsText = data.ingredients
+        } else {
+          recipe.ingredients = data.ingredients || ''
         }
 
-        recipe.value = {
-          title: data.title || '',
-          description: data.description || '',
-          ingredients: ingredientsText,
-          instructions: data.instructions || '',
-          category: data.category,
-          prep_time: data.prep_time || 0,
-          cook_time: data.cook_time || 0,
-          servings: data.servings || 4,
-          image_url: data.image_url || ''
-        }
+        console.log('Recipe loaded for editing:', recipe)
       } catch (err) {
         console.error('Error fetching recipe:', err)
         error.value = 'Failed to load recipe'
-      }
-    }
-
-    const fetchCategories = async () => {
-      try {
-        const response = await apiService.getCategories()
-        categories.value = response.data
-      } catch (err) {
-        console.error('Error fetching categories:', err)
+      } finally {
+        pageLoading.value = false
       }
     }
 
     const updateRecipe = async () => {
-      loading.value = true
       error.value = null
+      success.value = null
+      loading.value = true
 
       try {
-        await apiService.updateRecipe(recipeId, recipe.value)
-        router.push({ name: 'RecipeDetail', params: { id: recipeId } })
+        const data = {
+          title: recipe.title.trim(),
+          description: recipe.description.trim()
+        }
+
+        if (recipe.ingredients) data.ingredients = recipe.ingredients.trim()
+        if (recipe.instructions) data.instructions = recipe.instructions.trim()
+        if (recipe.prep_time >= 0) data.prep_time = recipe.prep_time
+        if (recipe.cook_time >= 0) data.cook_time = recipe.cook_time
+        if (recipe.servings > 0) data.servings = recipe.servings
+        if (recipe.image_url) data.image_url = recipe.image_url.trim()
+
+        // Map category name to ID
+        if (recipe.category_name && categoryMap.value[recipe.category_name]) {
+          data.category = categoryMap.value[recipe.category_name]
+        } else if (recipe.category) {
+          data.category = recipe.category
+        }
+
+        console.log('Updating recipe:', data)
+        await apiService.updateRecipe(recipeId, data)
+
+        success.value = 'Recipe updated!'
+        setTimeout(() => {
+          router.push({ name: 'RecipeDetail', params: { id: recipeId } })
+        }, 1000)
       } catch (err) {
+        console.error('Update error:', err)
         error.value = err.response?.data?.detail || 'Failed to update recipe'
+      } finally {
         loading.value = false
       }
     }
 
-    onMounted(() => {
-      fetchCategories()
-      fetchRecipe()
+    onMounted(async () => {
+      await fetchCategories()
+      await fetchRecipe()
     })
 
     return {
       recipeId,
       recipe,
-      categories,
+      pageLoading,
       loading,
       error,
+      success,
       updateRecipe
     }
   }
@@ -190,8 +250,5 @@ export default {
 </script>
 
 <style scoped>
-.card {
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-}
+.card { margin: 2rem 0; }
 </style>
